@@ -1,0 +1,486 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>GTA Twitch EventSub Follower Ticker</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Black+Ops+One&display=swap" rel="stylesheet">
+<style>
+:root {
+  --gta-gold: #f4d34e;
+  --gta-red: #ff0000;
+  --panel: rgba(8, 8, 8, .96);
+  --font-gta: "Pricedown", "Black Ops One", Impact, sans-serif;
+}
+* { box-sizing: border-box; }
+html, body {
+  margin: 0; width: 100%; height: 100%;
+  overflow: hidden; background: transparent;
+  color: #fff; font-family: Arial, sans-serif;
+}
+#ticker {
+  position: absolute; left: 0; top: 50%;
+  transform: translateY(-50%);
+  width: 100%; display: flex; align-items: center;
+  gap: 18px; overflow: hidden;
+  padding: 12px 18px;
+  background: rgba(0,0,0,.90);
+  border-top: 3px solid var(--gta-gold);
+  border-bottom: 3px solid var(--gta-gold);
+}
+#fixed-label {
+  z-index: 2; flex: 0 0 auto; white-space: nowrap;
+  color: var(--gta-gold); font: 30px var(--font-gta);
+  letter-spacing: 2px; text-shadow: 3px 3px #000;
+}
+#names-window { flex: 1 1 auto; min-width: 0; overflow: hidden; white-space: nowrap; }
+#track {
+  display: flex; width: max-content; will-change: transform;
+  animation: scroll-names 35s linear infinite;
+}
+.group { display: flex; align-items: center; flex: 0 0 auto; white-space: nowrap; }
+.group .name {
+  color: var(--gta-red); font: 30px var(--font-gta);
+  letter-spacing: 2px; padding: 0 18px;
+  text-shadow: 3px 3px #000;
+}
+.group .star { color: var(--gta-gold); font-size: 25px; }
+@keyframes scroll-names {
+  from { transform: translateX(0); }
+  to { transform: translateX(-50%); }
+}
+#gear {
+  position: absolute; right: 12px; top: 12px; z-index: 20;
+  border: 1px solid rgba(244,211,78,.7); border-radius: 6px;
+  background: rgba(0,0,0,.75); color: var(--gta-gold);
+  padding: 7px 10px; cursor: pointer; font-size: 16px;
+}
+#status {
+  position: absolute; right: 12px; top: 54px; z-index: 20;
+  color: #fff; background: rgba(0,0,0,.72);
+  padding: 5px 9px; border-radius: 4px; font: 12px Arial,sans-serif;
+}
+#status.ok { color: #8df0a2; }
+#status.bad { color: #ff8a8a; }
+#setup {
+  position: absolute; z-index: 30; top: 50%; left: 50%;
+  transform: translate(-50%,-50%);
+  width: min(560px, calc(100vw - 30px));
+  max-height: calc(100vh - 30px); overflow: auto;
+  background: var(--panel); border: 2px solid var(--gta-gold);
+  border-radius: 10px; padding: 20px;
+  box-shadow: 0 12px 40px rgba(0,0,0,.65);
+  font: 14px/1.45 Arial,sans-serif;
+}
+#setup h1 {
+  margin: 0 0 5px; color: var(--gta-gold);
+  font: 25px var(--font-gta); letter-spacing: 1px;
+}
+#setup p { color: #ddd; margin: 8px 0 12px; }
+#setup label { display: block; margin: 12px 0 5px; color: var(--gta-gold); font-weight: bold; }
+#setup input {
+  display: block; width: 100%; padding: 10px;
+  border: 1px solid #777; border-radius: 5px;
+  background: #171717; color: #fff; font-size: 14px;
+}
+#setup button {
+  border: 0; border-radius: 5px; padding: 10px 13px;
+  cursor: pointer; font-weight: bold; margin: 8px 6px 0 0;
+}
+.primary { background: var(--gta-gold); color: #111; }
+.secondary { background: #333; color: #fff; border: 1px solid #666 !important; }
+#message { margin-top: 10px; color: #f4d34e; white-space: pre-wrap; overflow-wrap: anywhere; }
+.small { color: #aaa !important; font-size: 12px; }
+#setup a { color: #f4d34e; }
+.hidden { display: none !important; }
+@media (max-width: 700px) {
+  #ticker { gap: 10px; padding: 10px; }
+  #fixed-label { font-size: 22px; }
+  .group .name { font-size: 22px; padding: 0 12px; }
+  .group .star { font-size: 19px; }
+}
+</style>
+</head>
+<body>
+
+<div id="ticker">
+  <div id="fixed-label">★ NEW FOLLOWER</div>
+  <div id="names-window">
+    <div id="track">
+      <div class="group" id="group1"></div>
+      <div class="group" id="group2" aria-hidden="true"></div>
+    </div>
+  </div>
+</div>
+
+<button id="gear" title="Twitch connection settings">⚙</button>
+<div id="status">Twitch not connected</div>
+
+<section id="setup">
+  <h1>GTA FOLLOWER TICKER</h1>
+  <p>Connect this overlay directly to Twitch EventSub. The NEW FOLLOWER label stays fixed; follower names scroll right to left in red.</p>
+
+  <label for="clientId">Twitch Developer Client ID</label>
+  <input id="clientId" autocomplete="off" placeholder="Paste your Twitch app Client ID">
+
+  <label for="channelLogin">Your Twitch channel login</label>
+  <input id="channelLogin" autocomplete="off" placeholder="YourChannelName">
+
+  <p class="small">Your Twitch app must use the exact Redirect URL shown below. Add the scope <b>moderator:read:followers</b> when authorizing.</p>
+  <label>Redirect URL for your Twitch app</label>
+  <input id="redirectUrl" readonly>
+
+  <button class="secondary" id="copyRedirect">Copy redirect URL</button>
+  <button class="primary" id="connect">Connect Twitch</button>
+  <button class="secondary" id="test">Test follower</button>
+  <button class="secondary" id="close">Close settings</button>
+
+  <div id="message">Setup required. Enter your Client ID and channel login.</div>
+  <p class="small">
+    Your access token is held in memory only and is not saved by this file. Do not share it.
+    The Client ID and channel login are saved locally in this browser profile.
+  </p>
+</section>
+
+<script>
+(() => {
+  "use strict";
+
+  const $ = (id) => document.getElementById(id);
+  const followers = [];
+  const maxFollowers = 20;
+  const scope = "moderator:read:followers";
+
+  let accessToken = null;
+  let clientId = "";
+  let channelLogin = "";
+  let broadcasterId = "";
+  let moderatorId = "";
+  let socket = null;
+  let reconnectTimer = null;
+  let reconnecting = false;
+  let intentionalClose = false;
+
+  const track = $("track");
+  const group1 = $("group1");
+  const group2 = $("group2");
+
+  function setMessage(message, bad = false) {
+    $("message").textContent = message;
+    $("message").style.color = bad ? "#ff9292" : "#f4d34e";
+  }
+
+  function setStatus(message, state = "") {
+    $("status").textContent = message;
+    $("status").className = state;
+  }
+
+  function makeItems(group, names) {
+    group.replaceChildren();
+    names.forEach((name) => {
+      const label = document.createElement("span");
+      label.className = "name";
+      label.textContent = name;
+      group.appendChild(label);
+
+      const star = document.createElement("span");
+      star.className = "star";
+      star.textContent = " ★ ";
+      group.appendChild(star);
+    });
+  }
+
+  function renderTicker() {
+    const names = followers.length ? followers.slice() : ["WAITING FOR FOLLOWERS"];
+    makeItems(group1, names);
+
+    // Repeat the list until it is wide enough to fill the moving window.
+    let repeats = 0;
+    const targetWidth = Math.max($("names-window").clientWidth * 1.5, 500);
+    while (group1.scrollWidth < targetWidth && repeats < 30) {
+      names.forEach((name) => {
+        const label = document.createElement("span");
+        label.className = "name";
+        label.textContent = name;
+        group1.appendChild(label);
+        const star = document.createElement("span");
+        star.className = "star";
+        star.textContent = " ★ ";
+        group1.appendChild(star);
+      });
+      repeats++;
+    }
+
+    group2.innerHTML = group1.innerHTML;
+    track.style.animation = "none";
+    void track.offsetWidth;
+    track.style.animation = "";
+  }
+
+  function addFollower(name) {
+    if (typeof name !== "string" || !name.trim()) return;
+    followers.push(name.trim().slice(0, 32));
+    if (followers.length > maxFollowers) followers.shift();
+    renderTicker();
+  }
+
+  async function twitchFetch(url, options = {}) {
+    const response = await fetch(url, {
+      ...options,
+      headers: {
+        "Client-Id": clientId,
+        "Authorization": "Bearer " + accessToken,
+        ...(options.headers || {})
+      }
+    });
+
+    const body = await response.json().catch(() => ({}));
+    if (!response.ok) {
+      const detail = body.message || body.error || ("HTTP " + response.status);
+      throw new Error(detail);
+    }
+    return body;
+  }
+
+  async function validateAndSubscribe(token) {
+    accessToken = token;
+    clientId = $("clientId").value.trim();
+    channelLogin = $("channelLogin").value.trim().replace(/^@/, "").toLowerCase();
+
+    if (!clientId || !channelLogin) {
+      throw new Error("Enter your Twitch Client ID and channel login first.");
+    }
+
+    localStorage.setItem("gta_twitch_client_id", clientId);
+    localStorage.setItem("gta_twitch_channel_login", channelLogin);
+
+    setMessage("Checking Twitch authorization…");
+    const validationResponse = await fetch("https://id.twitch.tv/oauth2/validate", {
+      headers: { "Authorization": "OAuth " + accessToken }
+    });
+
+    if (!validationResponse.ok) {
+      throw new Error("Twitch token is invalid or expired. Connect again.");
+    }
+
+    const auth = await validationResponse.json();
+    moderatorId = auth.user_id;
+
+    if (!auth.scopes || !auth.scopes.includes(scope)) {
+      throw new Error("This token is missing moderator:read:followers. Re-authorize and approve that permission.");
+    }
+
+    setMessage("Finding channel " + channelLogin + "…");
+    const userData = await twitchFetch(
+      "https://api.twitch.tv/helix/users?login=" + encodeURIComponent(channelLogin)
+    );
+
+    if (!userData.data || !userData.data.length) {
+      throw new Error("Could not find that Twitch channel. Check the channel login.");
+    }
+
+    broadcasterId = userData.data[0].id;
+
+    setMessage("Connecting to Twitch EventSub…");
+    intentionalClose = false;
+    connectEventSub("wss://eventsub.wss.twitch.tv/ws", false);
+  }
+
+  async function createFollowSubscription(sessionId) {
+    setMessage("Subscribing to new follower events…");
+
+    await twitchFetch("https://api.twitch.tv/helix/eventsub/subscriptions", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        type: "channel.follow",
+        version: "2",
+        condition: {
+          broadcaster_user_id: broadcasterId,
+          moderator_user_id: moderatorId
+        },
+        transport: {
+          method: "websocket",
+          session_id: sessionId
+        }
+      })
+    });
+
+    setStatus("● Twitch connected", "ok");
+    setMessage("Connected! New Twitch followers will appear automatically.");
+    $("setup").classList.add("hidden");
+  }
+
+  function connectEventSub(url, isReconnect) {
+    clearTimeout(reconnectTimer);
+    const newSocket = new WebSocket(url);
+    const previousSocket = socket;
+
+    newSocket.onopen = () => {
+      setStatus("Connecting to Twitch…");
+    };
+
+    newSocket.onmessage = async (message) => {
+      let data;
+      try { data = JSON.parse(message.data); } catch (_) { return; }
+
+      const type = data.metadata && data.metadata.message_type;
+
+      if (type === "session_welcome") {
+        const sessionId = data.payload.session.id;
+        socket = newSocket;
+
+        if (isReconnect) {
+          reconnecting = false;
+          if (previousSocket && previousSocket !== newSocket) {
+            try { previousSocket.close(); } catch (_) {}
+          }
+          setStatus("● Twitch connected", "ok");
+          setMessage("Twitch connection restored.");
+        } else {
+          try {
+            await createFollowSubscription(sessionId);
+          } catch (error) {
+            setStatus("Twitch subscription error", "bad");
+            setMessage("Could not subscribe: " + error.message, true);
+          }
+        }
+      }
+
+      if (type === "session_reconnect") {
+        const reconnectUrl = data.payload.session.reconnect_url;
+        reconnecting = true;
+        connectEventSub(reconnectUrl, true);
+      }
+
+      if (type === "notification" &&
+          data.metadata.subscription_type === "channel.follow") {
+        const event = data.payload.event || {};
+        addFollower(event.user_name || event.user_login || "New follower");
+      }
+
+      if (type === "revocation") {
+        setStatus("Twitch authorization revoked", "bad");
+        setMessage("Twitch revoked the follower subscription. Open settings and reconnect.", true);
+      }
+
+      if (type === "session_reconnect") return;
+    };
+
+    newSocket.onerror = () => {
+      setStatus("Twitch connection error", "bad");
+    };
+
+    newSocket.onclose = () => {
+      if (intentionalClose || reconnecting) return;
+      if (newSocket !== socket && socket && socket.readyState === WebSocket.OPEN) return;
+
+      setStatus("Twitch disconnected; reconnecting…", "bad");
+      reconnectTimer = setTimeout(() => {
+        if (accessToken && !intentionalClose) {
+          connectEventSub("wss://eventsub.wss.twitch.tv/ws", false);
+        }
+      }, 4000);
+    };
+
+    if (!isReconnect) socket = newSocket;
+  }
+
+  function startOAuth() {
+    clientId = $("clientId").value.trim();
+    channelLogin = $("channelLogin").value.trim().replace(/^@/, "").toLowerCase();
+
+    if (!clientId || !channelLogin) {
+      setMessage("Enter your Twitch Client ID and channel login first.", true);
+      return;
+    }
+
+    if (!/^https?:$/.test(location.protocol)) {
+      setMessage("For Twitch sign-in, serve this HTML from localhost (instructions are in the download notes). Do not open it as file://.", true);
+      return;
+    }
+
+    const redirectUri = location.origin + location.pathname;
+    localStorage.setItem("gta_twitch_client_id", clientId);
+    localStorage.setItem("gta_twitch_channel_login", channelLogin);
+
+    const stateBytes = new Uint8Array(16);
+    crypto.getRandomValues(stateBytes);
+    const state = Array.from(stateBytes, b => b.toString(16).padStart(2, "0")).join("");
+    sessionStorage.setItem("gta_twitch_oauth_state", state);
+
+    const params = new URLSearchParams({
+      response_type: "token",
+      client_id: clientId,
+      redirect_uri: redirectUri,
+      scope: scope,
+      state: state,
+      force_verify: "true"
+    });
+
+    setMessage("Opening Twitch authorization…");
+    location.href = "https://id.twitch.tv/oauth2/authorize?" + params.toString();
+  }
+
+  function handleOAuthReturn() {
+    if (!location.hash || !location.hash.includes("access_token=")) return false;
+
+    const params = new URLSearchParams(location.hash.slice(1));
+    const token = params.get("access_token");
+    const returnedState = params.get("state");
+    const expectedState = sessionStorage.getItem("gta_twitch_oauth_state");
+
+    history.replaceState(null, document.title, location.pathname + location.search);
+
+    if (!token || !returnedState || returnedState !== expectedState) {
+      setMessage("Twitch sign-in state check failed. Please connect again.", true);
+      return true;
+    }
+
+    sessionStorage.removeItem("gta_twitch_oauth_state");
+    $("setup").classList.remove("hidden");
+    validateAndSubscribe(token).catch(error => {
+      setStatus("Twitch connection failed", "bad");
+      setMessage(error.message, true);
+    });
+    return true;
+  }
+
+  $("clientId").value = localStorage.getItem("gta_twitch_client_id") || "";
+  $("channelLogin").value = localStorage.getItem("gta_twitch_channel_login") || "";
+  $("redirectUrl").value = location.protocol === "file:"
+    ? "Use http://localhost hosting; see setup instructions"
+    : location.origin + location.pathname;
+
+  $("connect").addEventListener("click", startOAuth);
+  $("copyRedirect").addEventListener("click", async () => {
+    try {
+      await navigator.clipboard.writeText($("redirectUrl").value);
+      setMessage("Redirect URL copied.");
+    } catch (_) {
+      $("redirectUrl").select();
+      setMessage("Select and copy the Redirect URL.");
+    }
+  });
+
+  $("gear").addEventListener("click", () => $("setup").classList.toggle("hidden"));
+  $("close").addEventListener("click", () => $("setup").classList.add("hidden"));
+  $("test").addEventListener("click", () => {
+    const testName = prompt("Enter a test follower name:", "GTAFan123");
+    if (testName) addFollower(testName);
+  });
+
+  window.newFollower = addFollower;
+  window.addEventListener("resize", renderTicker);
+
+  renderTicker();
+
+  if (!handleOAuthReturn()) {
+    setMessage("Enter your Client ID and Twitch channel login, then connect.");
+  }
+})();
+</script>
+</body>
+</html>
